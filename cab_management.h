@@ -1,6 +1,13 @@
 #pragma once
-#include <bits/stdc++.h>
-using namespace std;
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <limits>
+#include <algorithm>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 struct Location {
     double latitude;
@@ -18,9 +25,11 @@ struct Cab {
 
 class CabManager {
 private:
-    vector<Cab> cabs;
+    std::vector<Cab> cabs;
 
     static double toRad(double deg) { return deg * M_PI / 180.0; }
+
+public:
     static double distanceMeters(const Location &a, const Location &b) {
         const double R = 6371000.0;
         double dLat = toRad(b.latitude - a.latitude);
@@ -34,7 +43,6 @@ private:
         return R * c;
     }
 
-public:
     bool addCab(int id, const Location &pos, bool available = true) {
         for (auto &c : cabs) if (c.id == id) return false;
         cabs.emplace_back(id, pos, available);
@@ -42,7 +50,7 @@ public:
     }
 
     bool removeCab(int id) {
-        auto it = remove_if(cabs.begin(), cabs.end(), [&](const Cab &c){ return c.id == id; });
+        auto it = std::remove_if(cabs.begin(), cabs.end(), [&](const Cab &c){ return c.id == id; });
         if (it == cabs.end()) return false;
         cabs.erase(it, cabs.end());
         return true;
@@ -60,7 +68,7 @@ public:
 
     int findNearestAvailable(const Location &point) const {
         int bestId = -1;
-        double bestDist = numeric_limits<double>::infinity();
+        double bestDist = std::numeric_limits<double>::infinity();
         for (const auto &c : cabs) {
             if (!c.available) continue;
             double d = distanceMeters(point, c.position);
@@ -74,13 +82,13 @@ public:
         return false;
     }
 
-    int count() const { return (int)cabs.size(); }
+    int count() const { return static_cast<int>(cabs.size()); }
 
     int countAvailable() const {
         int k = 0; for (const auto &c : cabs) if (c.available) k++; return k;
     }
 
-    vector<Cab> listCabs() const { return cabs; }
+    std::vector<Cab> listCabs() const { return cabs; }
 
     void reset() { cabs.clear(); }
 };

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cab Booking - Real Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />  // add a line this 
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="bar">
+        <div class="left">
+            <strong>Real Map Cab Simulation</strong>
+            <span class="muted">(Click map to set pickup; optional drop)</span>
+        </div>
+        <div class="right">
+            <label> Cabs: <input id="lfCabCount" type="number" min="1" max="30" value="8" /></label>
+            <label> Radius(m): <input id="lfRadius" type="number" min="100" max="5000" value="1200" /></label>
+            <label><input id="lfDropToggle" type="checkbox" /> Enable drop</label>
+            <button id="lfReset">Reset</button>
+        </div>
+    </div>
+    <div id="layout">
+        <div id="mapPane">
+            <div id="map"></div>
+            <div class="info" id="lfInfo">Click on map to set pickup.</div>
+        </div>
+        <aside id="sidePane">
+            <div class="side-section">
+                <h3>Routing Configuration</h3>
+                <div class="method">
+                    <div class="method-item method-item--active">
+                        <div class="title">Road-Based Routing</div>
+                        <div class="sub">Uses real road networks for accurate routing</div>
+                    </div>
+                </div>
+            </div>
+            <div class="side-section">
+                <h3>Available Cabs</h3>
+                <div id="availableCabs" class="cab-info">Use the map to find available cabs</div>
+            </div>
+            <div class="side-section">
+                <h3>Trip Details</h3>
+                <div class="rows">
+                    <div class="row"><span>Status</span><span id="tdStatus">Idle</span></div>
+                    <div class="row"><span>Phase</span><span id="tdPhase">–</span></div>
+                    <div class="row"><span>Distance</span><span id="tdDistance">–</span></div>
+                    <div class="row"><span>Duration</span><span id="tdDuration">–</span></div>
+                    <div class="row"><span>Estimated Fare</span><span id="tdFare">–</span></div>
+                    <div class="row"><span>Now</span><span id="tdNow">–</span></div>
+                    <div class="row"><span>ETA</span><span id="tdEta">–</span></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+
+

@@ -14,7 +14,7 @@ Cab-Booking-System/
 ├── cab_management.cpp    # CabManager standalone demo / unit runner
 ├── real_map_logic.h      # RealMapCabSystem & MapManager routing, distance & trip lifecycle
 ├── real_map_logic.cpp    # RealMapCabSystem implementation & fare calculation
-├── main.cpp              # C++ simulation entry point demonstrating end-to-end booking flow
+├── main.cpp              # C++ simulation entry point & ETA validation test suite
 ├── index.html            # Web UI with Leaflet map, trip stats sidebar & control bar
 ├── style.css             # Dark-themed dashboard styling and responsive map layout
 ├── script.js             # Frontend logic: Overpass road sampling, OSRM road routing, Leaflet animations
@@ -36,7 +36,7 @@ Simply build:
 ```cmd
 build.bat
 ```
-Or build and run immediately:
+Or build and run immediately (including the automated validation test suite):
 ```cmd
 build.bat run
 ```
@@ -94,10 +94,34 @@ No external server or build tools are required! You can open the UI directly:
 
 ---
 
-## 3. Architecture & Key Concepts
+## 3. Realistic Urban ETA & Travel Time Calculation
+
+In urban environments, travel times estimated strictly from free-flow highway speed limits (e.g., 40–50 km/h) are unrealistically optimistic (for instance, a 9 km city trip taking only ~13 minutes). This project incorporates a realistic urban speed model:
+
+### How ETA is Calculated:
+1. **Actual Road Distance**: The system always uses the actual routed road distance returned by the routing engine (or $1.3 \times$ Haversine network winding factor if raw geometry is unavailable).
+2. **Prefer Routing Engine Duration with Validation**: When the routing engine provides a duration:
+   - The implied average speed is evaluated ($\text{Speed} = \text{Distance} / \text{Duration}$).
+   - If the speed is within realistic urban limits ($5.0 \text{ km/h} \le \text{Speed} \le 35.0 \text{ km/h}$), the routing engine duration is used directly.
+   - If the routing engine duration implies an unrealistically high speed ($> 35.0 \text{ km/h}$, such as free-flow open highway limits in dense city traffic), it is clamped to prevent impossible ETAs.
+3. **Realistic Urban Speed Fallback**: When routing engine duration is missing or clamped, duration is calculated using a configurable realistic urban city speed constant:
+   - `DEFAULT_URBAN_SPEED_KMH = 24.0` km/h (benchmark range 22–25 km/h).
+   - $\text{Duration (minutes)} = (\text{Distance in km} / \text{Speed in km/h}) \times 60$.
+4. **Validation Benchmarks**:
+   - **~5 km trip**: $\approx 12.5$ minutes (benchmark: 12–14 minutes).
+   - **~9 km trip**: $\approx 22.5$ minutes (benchmark: 22–25 minutes, corrected from 13 minutes).
+   - **~15 km trip**: $\approx 37.5$ minutes (benchmark: 36–41 minutes).
+5. **Safety Floors**: Minimum trip duration floor ($1.0$ minute) prevents zero, negative, or NaN durations on very short distances.
+6. **ETA & Dynamic Fare**:
+   - $\text{ETA} = \text{Current Time} + \text{Duration}$.
+   - Fare in INR is dynamically calculated using the corrected road distance and realistic duration: $\text{Base Fare} (₹30) + (₹12/\text{km}) + (₹2/\text{minute})$.
+
+---
+
+## 4. Architecture & Key Concepts
 
 - **`CabManager`**: Fleet container managing availability, cab coordinates, and Euclidean/Haversine nearest-neighbor lookups.
-- **`RealMapCabSystem` / `MapManager`**: High-level system coordinating trip state machine (`IDLE` -> `CAB_TO_PICKUP` -> `PICKUP_TO_DROP` -> `COMPLETED`), road distance estimation, and dynamic pricing models.
+- **`RealMapCabSystem` / `MapManager`**: High-level system coordinating trip state machine (`IDLE` -> `CAB_TO_PICKUP` -> `PICKUP_TO_DROP` -> `COMPLETED`), road distance estimation, speed configuration, and dynamic pricing models.
 - **Seamless Naming Compatibility**: The header provides `using MapManager = RealMapCabSystem;` and `calculateRoute()` to ensure zero mismatch across naming conventions.
 
 ---

@@ -16,8 +16,20 @@ Route::Route() : totalDistance(0.0), estimatedDuration(0.0), estimatedFare(0.0),
 // TripPhase constructor
 TripPhase::TripPhase() : type(IDLE), assignedCabId(-1) {}
 
-// RealMapCabSystem constructors
-RealMapCabSystem::RealMapCabSystem(double speed) : currentTrip(), averageSpeed(speed) {}
+// RealMapCabSystem constructors with configurable realistic urban average speed
+RealMapCabSystem::RealMapCabSystem(double speedKmh)
+    : currentTrip(),
+      averageSpeedKmh((speedKmh > 0.0) ? speedKmh : DEFAULT_URBAN_SPEED_KMH) {}
+
+void RealMapCabSystem::setAverageSpeedKmh(double speedKmh) {
+    if (speedKmh > 0.0) {
+        averageSpeedKmh = speedKmh;
+    }
+}
+
+double RealMapCabSystem::getAverageSpeedKmh() const {
+    return averageSpeedKmh;
+}
 
 // Add cabs to the system
 void RealMapCabSystem::addCab(int id, Location position) {
@@ -55,7 +67,7 @@ int RealMapCabSystem::findNearestCab(Location pickup) {
     return cabManager.findNearestAvailable(pickup);
 }
 
-// Calculate fare based on distance (in km) and time (in minutes)
+// Calculate fare based on distance (in km) and duration (in minutes)
 double RealMapCabSystem::calculateFare(double distanceKm, double durationMinutes) {
     const double BASE_FARE = 2.50;       // Base fare in currency units
     const double PER_KM_RATE = 1.20;     // Rate per kilometer
@@ -69,14 +81,63 @@ double RealMapCabSystem::calculateFare(double distanceKm, double durationMinutes
     return std::max(totalFare, MINIMUM_FARE);
 }
 
-// Estimate route distance, duration, and fare (simplified - assumes road network factor is 1.3x straight line)
+/**
+ * Calculates realistic travel duration in seconds.
+ * 
+ * Units:
+ *   - distanceMeters: meters (m)
+ *   - routeDurationSeconds: seconds (s)
+ *   - averageSpeedKmh: kilometers per hour (km/h)
+ *   - output: seconds (s)
+ * 
+ * Decision logic:
+ *   1. Converts distance to km: distanceKm = distanceMeters / 1000.0.
+ *   2. If routeDurationSeconds is provided (> 0):
+ *      - Computes implied speed: (distanceKm) / (routeDurationSeconds / 3600.0).
+ *      - If speed is within realistic urban bounds (5.0 <= speed <= 35.0 km/h),
+ *        prefers and uses routing engine duration directly.
+ *      - If implied speed is impossibly high (> 35.0 km/h, such as raw free-flow highway
+ *        assumptions of 41.5 km/h for dense urban centers) or too low (< 5.0 km/h),
+ *        falls back to the realistic urban speed model (averageSpeedKmh, default 24.0 km/h).
+ *   3. If routeDurationSeconds is missing/unavailable (<= 0):
+ *      - Calculates duration via urban speed model: (distanceKm / averageSpeedKmh) * 3600.0 s.
+ *   4. Enforces MIN_TRIP_DURATION_SECONDS floor (60s) to prevent 0 or negative values.
+ */
+double RealMapCabSystem::calculateTravelDuration(double distanceMeters, double routeDurationSeconds) const {
+    double distanceKm = std::max(0.0, distanceMeters) / 1000.0;
+    if (distanceKm < 0.01) {
+        return MIN_TRIP_DURATION_SECONDS;
+    }
+
+    double durationSeconds = 0.0;
+
+    // Check if routing engine duration is provided and realistic
+    if (routeDurationSeconds > 0.0) {
+        double impliedSpeedKmh = distanceKm / (routeDurationSeconds / 3600.0);
+        if (impliedSpeedKmh >= MIN_REALISTIC_URBAN_SPEED_KMH && impliedSpeedKmh <= MAX_REALISTIC_URBAN_SPEED_KMH) {
+            // Realistic engine duration -> prefer and use directly
+            durationSeconds = routeDurationSeconds;
+        } else {
+            // Impossibly high speed (> 35 km/h) or crawl: fallback to realistic urban speed model
+            durationSeconds = (distanceKm / averageSpeedKmh) * 3600.0;
+        }
+    } else {
+        // Fallback realistic urban speed calculation: (distance_km / speed_kmh) * 3600 seconds
+        durationSeconds = (distanceKm / averageSpeedKmh) * 3600.0;
+    }
+
+    return std::max(MIN_TRIP_DURATION_SECONDS, durationSeconds);
+}
+
+// Estimate route distance, duration, and fare using road distance factor and urban speed model
 Route RealMapCabSystem::estimateRoute(Location from, Location to) {
     Route route;
     route.waypoints = {from, to};
 
     double straightDistance = calculateDistance(from, to);
-    route.totalDistance = straightDistance * 1.3; // Road distance factor
-    route.estimatedDuration = (averageSpeed > 0) ? (route.totalDistance / averageSpeed) : 0.0;
+    // Use road network winding factor (1.3x straight-line distance) when raw geometry is not loaded
+    route.totalDistance = straightDistance * 1.3; 
+    route.estimatedDuration = calculateTravelDuration(route.totalDistance);
     route.estimatedFare = calculateFare(route.totalDistance / 1000.0, route.estimatedDuration / 60.0);
     route.isValid = true;
 
@@ -90,17 +151,14 @@ bool RealMapCabSystem::startTrip(Location pickup) {
     int cabId = findNearestCab(pickup);
     if (cabId == -1) return false;
 
-    // Find the cab object
     Cab assignedCab;
     if (!cabManager.getCab(cabId, assignedCab)) return false;
 
-    // Set up trip
     currentTrip.type = TripPhase::CAB_TO_PICKUP;
     currentTrip.pickup = pickup;
     currentTrip.assignedCabId = cabId;
     currentTrip.currentRoute = estimateRoute(assignedCab.position, pickup);
 
-    // Mark cab as unavailable
     cabManager.setAvailability(cabId, false);
 
     return true;
@@ -120,31 +178,26 @@ bool RealMapCabSystem::addDropLocation(Location drop) {
 // Complete the trip
 void RealMapCabSystem::completeTrip() {
     if (currentTrip.assignedCabId != -1) {
-        // Mark cab as available again and update its position
         cabManager.setAvailability(currentTrip.assignedCabId, true);
         Location newPos = (currentTrip.type == TripPhase::PICKUP_TO_DROP) ? currentTrip.drop : currentTrip.pickup;
         cabManager.updatePosition(currentTrip.assignedCabId, newPos);
     }
 
-    currentTrip = TripPhase(); // Reset trip
+    currentTrip = TripPhase();
 }
 
-// Get current trip information
 TripPhase RealMapCabSystem::getCurrentTrip() const {
     return currentTrip;
 }
 
-// Get all cabs
 std::vector<Cab> RealMapCabSystem::getCabs() const {
     return cabManager.listCabs();
 }
 
-// Get available cabs count
 int RealMapCabSystem::getAvailableCabsCount() const {
     return cabManager.countAvailable();
 }
 
-// Reset the system
 void RealMapCabSystem::reset() {
     cabManager.reset();
     currentTrip = TripPhase();
@@ -152,14 +205,14 @@ void RealMapCabSystem::reset() {
 
 // Format time duration
 std::string RealMapCabSystem::formatDuration(double seconds) {
-    int totalMinutes = static_cast<int>(seconds / 60);
+    int totalMinutes = static_cast<int>(std::round(seconds / 60.0));
     int hours = totalMinutes / 60;
     int minutes = totalMinutes % 60;
 
     if (hours > 0) {
         return std::to_string(hours) + "h " + std::to_string(minutes) + "m";
     } else {
-        return std::to_string(minutes) + "m";
+        return std::to_string(std::max(1, minutes)) + "m";
     }
 }
 
@@ -181,46 +234,3 @@ std::string RealMapCabSystem::formatCurrency(double amount) {
     std::snprintf(buffer, sizeof(buffer), "$%.2f", amount);
     return std::string(buffer);
 }
-
-#ifdef REAL_MAP_DEMO
-int main() {
-    std::ios::sync_with_stdio(false);
-    std::cin.tie(nullptr);
-
-    RealMapCabSystem system;
-    Location delhi(28.6139, 77.2090);
-
-    std::cout << "=== Real Map Cab System Demo ===\n";
-    system.spawnCabsAround(delhi, 5, 2000);
-    std::cout << "Spawned " << system.getCabs().size() << " cabs around Delhi\n";
-
-    for (const auto& cab : system.getCabs()) {
-        std::cout << "Cab #" << cab.id << ": (" << cab.position.latitude << ", "
-                  << cab.position.longitude << ")\n";
-    }
-
-    Location pickup(28.6315, 77.2167);
-    std::cout << "\nSetting pickup at Connaught Place...\n";
-
-    if (system.startTrip(pickup)) {
-        TripPhase trip = system.getCurrentTrip();
-        std::cout << "Trip started! Assigned cab: #" << trip.assignedCabId << "\n";
-        std::cout << "Distance: " << system.formatDistance(trip.currentRoute.totalDistance) << "\n";
-        std::cout << "Estimated time: " << system.formatDuration(trip.currentRoute.estimatedDuration) << "\n";
-
-        Location drop(28.6129, 77.2295);
-        std::cout << "\nAdding drop location at India Gate...\n";
-        if (system.addDropLocation(drop)) {
-            trip = system.getCurrentTrip();
-            std::cout << "Drop location confirmed!\n";
-            std::cout << "Trip distance: " << system.formatDistance(trip.currentRoute.totalDistance) << "\n";
-            std::cout << "Estimated time: " << system.formatDuration(trip.currentRoute.estimatedDuration) << "\n";
-        }
-
-        system.completeTrip();
-        std::cout << "\nTrip completed. Available cabs: " << system.getAvailableCabsCount() << "\n";
-    }
-
-    return 0;
-}
-#endif

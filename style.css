@@ -1,0 +1,59 @@
+html, body { height: 100%; margin: 0; }
+.bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-bottom: 1px solid #1f2937;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+.bar .muted { color: #94a3b8; margin-left: 8px; font-size: 12px; }
+.bar input { background: #0b1226; color: #e2e8f0; border: 1px solid #26324a; border-radius: 6px; padding: 4px 8px; }
+.bar button { background: #0b1226; color: #e2e8f0; border: 1px solid #26324a; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+#layout { 
+    display: grid; 
+    grid-template-columns: 1fr 360px; 
+    height: calc(100vh - 50px);
+    width: 100%;
+    position: fixed;
+    top: 50px;
+    left: 0;
+}
+#mapPane { 
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+#map { 
+    height: 100%; 
+    width: 100%;
+}
+.info { position: absolute; left: 0; right: 0; bottom: 0; height: 38px; padding: 8px 12px; background: rgba(15,23,42,0.92); color: #94a3b8; border-top: 1px solid #1f2937; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+
+#sidePane { border-left: 1px solid #1f2937; background: #0b1226; color: #e2e8f0; overflow: auto; }
+#sidePane .side-section { padding: 12px 14px; border-bottom: 1px solid #1f2937; }
+#sidePane h3 { margin: 6px 0 10px; font-size: 16px; }
+.method { display: grid; gap: 10px; }
+.method-item { background: #0f172a; border: 1px solid #26324a; border-radius: 10px; padding: 10px; }
+.method-item--active { outline: 1px solid #60a5fa; }
+.method .title { font-weight: 600; }
+.method .sub { color: #94a3b8; font-size: 12px; }
+.searchers { margin-top: 10px; }
+.lbl { display:block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.search { width: 100%; background: #0f172a; color: #e2e8f0; border: 1px solid #26324a; border-radius: 8px; padding: 8px; }
+.results { list-style: none; padding: 0; margin: 6px 0 0 0; background: #0f172a; border: 1px solid #26324a; border-radius: 8px; max-height: 180px; overflow: auto; display:none; }
+.results li { padding: 8px; border-bottom: 1px solid #1f2937; cursor: pointer; }
+.results li:hover { background: #0b1226; }
+.rows { display: grid; gap: 6px; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed #1f2937; }
+.row span:first-child { color: #94a3b8; }
+
+.marker-cab { background: #f59e0b; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px rgba(0,0,0,0.2); }
+.marker-pickup { background: #22c55e; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px rgba(0,0,0,0.2); }
+.marker-drop { background: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px rgba(0,0,0,0.2); }
+
+/* removed floating trip card in favor of right sidebar */
+
+

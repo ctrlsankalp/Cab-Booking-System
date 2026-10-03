@@ -1,1 +1,19 @@
+# Build outputs and binaries
+*.exe
+*.o
+*.obj
+*.out
+*.pdb
+*.ilk
+cab_app
+cab_app.exe
+
+# IDE and editors
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
